@@ -1,0 +1,251 @@
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: sql-exporter-config
+
+data:
+  config.yaml: |
+    global:
+      scrape_timeout_offset: 500ms
+      min_interval: 15s
+      max_connections: 5
+      max_idle_connections: 5
+
+    collectors:
+      - collector_name: mssql
+
+        metrics:
+
+          # =========================
+          # SQL Availability
+          # =========================
+          - metric_name: mssql_up
+            type: gauge
+            help: "MSSQL availability"
+
+            values:
+              - up
+
+            query: |
+              SELECT 1 AS up
+
+          # =========================
+          # Connections
+          # =========================
+          - metric_name: mssql_connections_total
+            type: gauge
+            help: "Total MSSQL connections"
+
+            values:
+              - connections
+
+            query: |
+              SELECT COUNT(*) AS connections
+              FROM sys.dm_exec_sessions
+
+          - metric_name: mssql_user_connections
+            type: gauge
+            help: "User connections"
+
+            values:
+              - user_connections
+
+            query: |
+              SELECT cntr_value AS user_connections
+              FROM sys.dm_os_performance_counters
+              WHERE counter_name = 'User Connections'
+
+          # =========================
+          # Memory Metrics
+          # =========================
+          - metric_name: mssql_memory_used_mb
+            type: gauge
+            help: "SQL memory used MB"
+
+            values:
+              - memory_used_mb
+
+            query: |
+              SELECT physical_memory_in_use_kb / 1024 AS memory_used_mb
+              FROM sys.dm_os_process_memory
+
+          - metric_name: mssql_memory_available_mb
+            type: gauge
+            help: "Available OS memory MB"
+
+            values:
+              - memory_available_mb
+
+            query: |
+              SELECT available_physical_memory_kb / 1024 AS memory_available_mb
+              FROM sys.dm_os_sys_memory
+
+          # =========================
+          # CPU Metrics
+          # =========================
+          - metric_name: mssql_cpu_usage_percent
+            type: gauge
+            help: "SQL CPU utilization percentage"
+
+            values:
+              - cpu_usage
+
+            query: |
+              SELECT TOP 1
+                SQLProcessUtilization AS cpu_usage
+              FROM (
+                SELECT
+                  record.value('(./Record/SchedulerMonitorEvent/SystemHealth/ProcessUtilization)[1]', 'int') AS SQLProcessUtilization,
+                  ROW_NUMBER() OVER (ORDER BY timestamp DESC) AS row_num
+                FROM (
+                  SELECT timestamp, CONVERT(XML, record) AS record
+                  FROM sys.dm_os_ring_buffers
+                  WHERE ring_buffer_type = N'RING_BUFFER_SCHEDULER_MONITOR'
+                    AND record LIKE '%<SystemHealth>%'
+                ) x
+              ) y
+              WHERE row_num = 1
+
+          # =========================
+          # Database Size
+          # =========================
+          - metric_name: mssql_database_size_mb
+            type: gauge
+            help: "Database size in MB"
+
+            key_labels:
+              - database
+
+            values:
+              - size_mb
+
+            query: |
+              SELECT
+                DB_NAME(database_id) AS database,
+                SUM(size) * 8 / 1024 AS size_mb
+              FROM sys.master_files
+              GROUP BY database_id
+
+          # =========================
+          # IO Metrics
+          # =========================
+          - metric_name: mssql_io_reads_total
+            type: gauge
+            help: "Database IO reads"
+
+            key_labels:
+              - database
+
+            values:
+              - reads
+
+            query: |
+              SELECT
+                DB_NAME(database_id) AS database,
+                SUM(num_of_reads) AS reads
+              FROM sys.dm_io_virtual_file_stats(NULL, NULL)
+              GROUP BY database_id
+
+          - metric_name: mssql_io_writes_total
+            type: gauge
+            help: "Database IO writes"
+
+            key_labels:
+              - database
+
+            values:
+              - writes
+
+            query: |
+              SELECT
+                DB_NAME(database_id) AS database,
+                SUM(num_of_writes) AS writes
+              FROM sys.dm_io_virtual_file_stats(NULL, NULL)
+              GROUP BY database_id
+
+          # =========================
+          # Transactions
+          # =========================
+          - metric_name: mssql_transactions_total
+            type: gauge
+            help: "Transactions per database"
+
+            key_labels:
+              - database
+
+            values:
+              - transactions
+
+            query: |
+              SELECT
+                DB_NAME(database_id) AS database,
+                COUNT(*) AS transactions
+              FROM sys.dm_tran_database_transactions
+              GROUP BY database_id
+
+          # =========================
+          # Blocking Sessions
+          # =========================
+          - metric_name: mssql_blocked_sessions
+            type: gauge
+            help: "Blocked sessions"
+
+            values:
+              - blocked_sessions
+
+            query: |
+              SELECT COUNT(*) AS blocked_sessions
+              FROM sys.dm_exec_requests
+              WHERE blocking_session_id <> 0
+
+          # =========================
+          # Deadlocks
+          # =========================
+          - metric_name: mssql_deadlocks_total
+            type: gauge
+            help: "Deadlocks count"
+
+            values:
+              - deadlocks
+
+            query: |
+              SELECT cntr_value AS deadlocks
+              FROM sys.dm_os_performance_counters
+              WHERE counter_name = 'Number of Deadlocks/sec'
+
+          # =========================
+          # Batch Requests
+          # =========================
+          - metric_name: mssql_batch_requests_sec
+            type: gauge
+            help: "Batch requests/sec"
+
+            values:
+              - batch_requests
+
+            query: |
+              SELECT cntr_value AS batch_requests
+              FROM sys.dm_os_performance_counters
+              WHERE counter_name = 'Batch Requests/sec'
+
+          # =========================
+          # Buffer Cache Hit Ratio
+          # =========================
+          - metric_name: mssql_buffer_cache_hit_ratio
+            type: gauge
+            help: "Buffer cache hit ratio"
+
+            values:
+              - cache_hit_ratio
+
+            query: |
+              SELECT cntr_value AS cache_hit_ratio
+              FROM sys.dm_os_performance_counters
+              WHERE counter_name = 'Buffer cache hit ratio'
+
+    target:
+      data_source_name: "sqlserver://sa:Str0ngPassword!123@sqlserver-service:1433"
+
+      collectors:
+        - mssql

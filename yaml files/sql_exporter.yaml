@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: sql-exporter
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: sql-exporter
+
+  template:
+    metadata:
+      labels:
+        app: sql-exporter
+
+    spec:
+      containers:
+      - name: sql-exporter
+
+        image: burningalchemist/sql_exporter:latest
+
+        command:
+          - sql_exporter
+
+        args:
+          - -config.file=/etc/sql_exporter/config.yaml
+
+        ports:
+        - name: metrics
+          containerPort: 9399
+
+        volumeMounts:
+        - name: sql-exporter-config
+          mountPath: /etc/sql_exporter
+
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: 9399
+          initialDelaySeconds: 10
+          periodSeconds: 15
+
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: 9399
+          initialDelaySeconds: 30
+          periodSeconds: 20
+
+      volumes:
+      - name: sql-exporter-config
+        configMap:
+          name: sql-exporter-config
+
+---
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: sql-exporter
+
+  labels:
+    app: sql-exporter
+    release: monitoring
+
+spec:
+  selector:
+    app: sql-exporter
+
+  ports:
+    - name: metrics
+      port: 9399
+      targetPort: 9399
+
+  type: ClusterIP
