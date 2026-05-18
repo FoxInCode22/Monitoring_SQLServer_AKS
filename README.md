@@ -142,7 +142,7 @@ kubectl apply -f sql-exporter-servicemonitor.yaml
 
 Step 8 : Validate Prometheus Scraping
 ```
-kubectl port-forward svc/monitoring-kube-prometheus-prometheus 9237:9237
+kubectl port-forward svc/monitoring-kube-prometheus-prometheus 9090:9090
 ```
 Test Metrics in Prometheus
 ```
@@ -154,13 +154,13 @@ mssql_memory_used_mb
 
 Step 9 : Access Grafana
 ```
-kubectl port-forward svc/monitoring
+kubectl port-forward svc/monitoring-grafana 3000:80
 ```
 Open: ```http://localhost:3000```
 
 Retieve grafana admin passwrod using
 ```
-kubectl get secret monitoring-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
+kubectl get secret monitoring-grafana -o jsonpath="{.data.admin-password}" | %{[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($_))}
 ```
 
 Step 11 : Build Grafana Dashboard
@@ -175,15 +175,23 @@ Sample Queries:
 | Database Size | `mssql_database_size_mb` |
 
 
-<img width="1824" height="939" alt="image" src="https://github.com/user-attachments/assets/f8a7ed9a-e1dc-4e2d-8a40-e38ec3b5ff09" />
+<img width="1531" height="945" alt="image" src="https://github.com/user-attachments/assets/597109bf-df8d-41ca-836d-3d4639bf4fa4" />
+
 
 Note : The approach outlined in this guide is primarily intended as a POC for learning, validation, and initial setup. As part of this, we use port-forwarding to access Prometheus and Grafana locally.
-However, port-forwarding:
-- Is temporary and tied to your local session
-- Is not scalable
-- Is not suitable for production environments
-  
-In a production environment, Grafana and Prometheus should be exposed securely without relying on kubectl port-forward.    
-There are various approaches such as,
-	1. Expose Services via LoadBalancer
-  2. Use Ingress Controller
+However, port-forwarding is temporary and tied to your local session and not suitable for production environments.
+In a Production environment, Grafana and Prometheus should be exposed securely without relying on kubectl port-forward.    
+There are various approaches such as,	
+- Expose Services via LoadBalancer
+- Use Ingress Controller (recommended)
+
+## Summary 
+In this guide, we implemented a Kubernetes-native monitoring solution for Microsoft SQL Server running in AKS using Prometheus, Grafana, and SQL Exporter. The setup demonstrates how SQL Server metrics can be integrated into the broader Kubernetes observability ecosystem, enabling centralized monitoring for both infrastructure and database workloads.
+
+While the implementation shown here focuses on a proof-of-concept and learning-oriented setup, the same architecture can be extended further for enterprise-grade deployments by introducing secure ingress, persistent storage, alerting, authentication, and advanced dashboarding capabilities. The flexibility of SQL Exporter and the extensibility of Prometheus make this approach highly adaptable for monitoring modern containerized SQL Server environments.
+
+As more organizations modernize database platforms onto Kubernetes, having visibility into SQL Server health, workload behavior, and resource utilization becomes critical for operational reliability. This monitoring stack provides a strong foundation for building scalable and cloud-native observability solutions for SQL Server workloads running in AKS.
+
+### References :
+https://github.com/burningalchemist/sql_exporter
+
