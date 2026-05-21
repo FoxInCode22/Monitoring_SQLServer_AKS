@@ -23,6 +23,8 @@ MSSQL → sql_exporter → Prometheus → Grafana
 
 SQL Exporter is a widely used open-source monitoring tool that enables observability for SQL databases by exposing database metrics in a format consumable by Prometheus. Developed as a database-agnostic exporter, it supports platforms such as SQL Server, PostgreSQL, MySQL, and others, allowing teams to monitor diverse environments using a unified approach. It is highly flexible and configuration-driven, where custom SQL queries can be defined and grouped into collectors to generate meaningful metrics like query performance, connections, or I/O statistics. This makes SQL Exporter a powerful choice for implementing custom, query-level monitoring in modern cloud-native architectures.
 
+https://github.com/burningalchemist/sql_exporter
+
 ## Overview
 
 This guide walks through setting up a production-style monitoring stack for Microsoft SQL Server running in Azure Kubernetes Service (AKS) using:
